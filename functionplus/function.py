@@ -136,12 +136,12 @@ class Function:
         return self.__class__(f_new)
 
     # adds arithmetic and boolean operators to the class
-    for op_name in operator.__all__:
+    for op_name in dir(operator):
         _op = getattr(operator, op_name)
 
         # if the operator isn't one of the ones we want,
         # skip it in the loop
-        if _op.__name__ not in helper.operator_symbols:
+        if not callable(_op) or _op.__name__ not in helper.operator_symbols:
             continue
 
         # checks if the operator is unary
@@ -149,7 +149,8 @@ class Function:
             try:
                 locals()[op_name] = dunder.unary_dunder(_op)
             except NotImplementedError:
-                print(f"Unary operator {op_name} couldn't be added to Function")
+                #print(f"Unary operator {op_name} couldn't be added to Function")
+                pass
             continue
 
         # otherwise, treat it as a binary one
@@ -167,7 +168,7 @@ class Function:
             locals()[rop_name] = rop__
 
     # removes temporary variables
-    del _op, op__, rop__, rop_name
+    del op_name, _op, op__, rop__, rop_name
 
     @classmethod
     def id(cls, name: str = "id") -> ftypes.Self:

@@ -4,8 +4,14 @@ from . import types as ftypes
 
 __all__ = ["operator_symbols", "get_funcname", "operator_doc"]
 
-operator_symbols = {
+unary_symbols = {
     "abs": "abs ",
+    "neg": "-",
+    "pos": "+"
+}
+
+binary_symbols = {
+    "and_": "&",
     "add": "+",
     "eq": "==",
     "floordiv": "//",
@@ -16,16 +22,14 @@ operator_symbols = {
     "mod": "%",
     "mul": "*",
     "ne": "!=",
-    "not_": "not ",
-    "neg": "-",
-    "or_": "or",
-    "pos": "+",
+    "or_": "|",
     "pow": "**",
     "sub": "-",
     "truediv": "/",
     "xor": "^",
 }
 
+operator_symbols = {**unary_symbols, **binary_symbols}
 
 def get_funcname(obj: ftypes.GenericFunction | ftypes.Any) -> str:
     """Gets the __name__ of obj or the function it wraps."""
