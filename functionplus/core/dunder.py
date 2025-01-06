@@ -77,8 +77,17 @@ def binary_dunder(op: ftypes.BinaryOperator, reverse: bool = True):
             except TypeError:
                 return wrapper
 
-        components: set = getattr(self, "components", set([self]))
-        components.update(getattr(other, "components", set([other])))
+        components: set[ftypes.GenericFunction] = set()
+        try:
+            components.update(self.components)
+        except AttributeError:
+            if callable(self):
+                components.add(self)
+        try:
+            components.update(other.components)
+        except AttributeError:
+            if callable(other):
+                components.add(other)
 
         wrapper_.components = components
 

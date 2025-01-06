@@ -104,8 +104,17 @@ class Function:
         except TypeError:
             new_func = other.__class__(wrapper)
 
-        components: set = getattr(self, "components", set([self]))
-        components.update(getattr(other, "components", set([other])))
+        components: set[ftypes.GenericFunction] = set()
+        try:
+            components.update(self.components)
+        except AttributeError:
+            if callable(self):
+                components.add(self)
+        try:
+            components.update(other.components)
+        except AttributeError:
+            if callable(other):
+                components.add(other)
 
         new_func.components = components
 
