@@ -70,12 +70,19 @@ def binary_dunder(op: ftypes.BinaryOperator, reverse: bool = True):
 
         # wraps the wrapper in the Function class if possible
         try:
-            return self.__class__(wrapper)
+            wrapper_ = self.__class__(wrapper)
         except TypeError:
             try:
-                return other.__class__(wrapper)
+                wrapper_ = other.__class__(wrapper)
             except TypeError:
                 return wrapper
+
+        components: set = getattr(self, "components", set())
+        components.update(getattr(other, "components", set()))
+
+        wrapper_.components = components
+
+        return wrapper_
 
     # updates the dunder method's doctring
     newdoc = ops.operator_doc(op)
@@ -124,9 +131,13 @@ def unary_dunder(op: ftypes.UnaryOperator):
 
         # wraps the wrapper in the Function class
         try:
-            return self.__class__(wrapper)
+            wrapper_ = self.__class__(wrapper)
         except TypeError:
             return wrapper
+
+        wrapper_.components = self.components
+
+        return wrapper_
 
     # updates the dunder method's doctring
     newdoc = ops.operator_doc(op)

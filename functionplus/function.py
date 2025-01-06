@@ -17,7 +17,9 @@ class Function:
     function arithmetic, boolean logic, and composition.
 
     Attributes:
-        function (ftypes.GenericFunction): The function to wrap.
+        function (ftypes.GenericFunction): The function being wrapped.
+        components (set[ftypes.GenericFunction]): A set containing
+        all of the functions used to create the total function.
         name: The function's name.
 
     """
@@ -50,6 +52,8 @@ class Function:
         self.function: ftypes.GenericFunction = function
         if name is not None:
             self.name = name
+
+        self.components = set([self.function])
 
     @property
     def name(self) -> str:
