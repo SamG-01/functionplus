@@ -1,6 +1,6 @@
 from functools import wraps
 
-from . import helper
+from . import ops
 from . import types as ftypes
 
 __all__ = ["binary_calls", "binary_dunder", "unary_dunder"]
@@ -52,7 +52,7 @@ def binary_dunder(op: ftypes.BinaryOperator, reverse: bool = True):
         The reversed dunder method to be added if reverse is True.
     """
 
-    symbol = helper.operator_symbols[op.__name__]
+    symbol = ops.operator_symbols[op.__name__]
 
     # decorates the operator
     @wraps(op, assigned=("__name__", "__doc__"))
@@ -61,8 +61,8 @@ def binary_dunder(op: ftypes.BinaryOperator, reverse: bool = True):
             return op(*binary_calls(self, other, *args, **kwargs))
 
         # updates the wrapper's name and docstring appropriately
-        f_name = helper.get_funcname(self)
-        g_name = helper.get_funcname(other)
+        f_name = ops.get_funcname(self)
+        g_name = ops.get_funcname(other)
 
         new_name = f"({f_name} {symbol} {g_name})"
         wrapper.__name__ = new_name
@@ -78,7 +78,7 @@ def binary_dunder(op: ftypes.BinaryOperator, reverse: bool = True):
                 return wrapper
 
     # updates the dunder method's doctring
-    newdoc = helper.operator_doc(op)
+    newdoc = ops.operator_doc(op)
     __op__.__doc__ = newdoc
 
     if not reverse:
@@ -89,7 +89,7 @@ def binary_dunder(op: ftypes.BinaryOperator, reverse: bool = True):
     def __rop__(self, other: ftypes.GenericFunction | ftypes.Any):
         return __op__(self=other, other=self)
 
-    rnewdoc = helper.operator_doc(op, "other", "self")
+    rnewdoc = ops.operator_doc(op, "other", "self")
     __rop__.__doc__ = rnewdoc
 
     return __op__, __rop__
@@ -107,7 +107,7 @@ def unary_dunder(op: ftypes.UnaryOperator):
         __op__ (Callable[[Function], Function]): The dunder method to be added.
     """
 
-    symbol = helper.operator_symbols[op.__name__]
+    symbol = ops.operator_symbols[op.__name__]
 
     # decorates the operator
     @wraps(op, assigned=("__name__", "__doc__"))
@@ -116,7 +116,7 @@ def unary_dunder(op: ftypes.UnaryOperator):
             return op(self(*args, **kwargs))
 
         # updates the operator's name and docstring appropriately
-        f_name = helper.get_funcname(self)
+        f_name = ops.get_funcname(self)
 
         new_name = f"({symbol} {f_name})"
         wrapper.__name__ = new_name
@@ -129,7 +129,7 @@ def unary_dunder(op: ftypes.UnaryOperator):
             return wrapper
 
     # updates the dunder method's doctring
-    newdoc = helper.operator_doc(op)
+    newdoc = ops.operator_doc(op)
     __op__.__doc__ = newdoc
 
     return __op__

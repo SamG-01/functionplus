@@ -6,7 +6,7 @@ from inspect import signature
 
 from numpy import full_like
 
-from .core import dunder, helper
+from .core import dunder, ops
 from .core import types as ftypes
 
 __all__ = ["Function"]
@@ -73,10 +73,10 @@ class Function:
         """Composes the function with another Function."""
 
         f = getattr(self, "function", self)
-        f_name = helper.get_funcname(self)
+        f_name = ops.get_funcname(self)
 
         g = getattr(other, "function", other)
-        g_name = helper.get_funcname(other)
+        g_name = ops.get_funcname(other)
 
         # if g is a constant, treat
         # f @ g as a function call f(g)
@@ -114,7 +114,7 @@ class Function:
                     return out.item()
                 return out
 
-            other_func = Function(other_func, helper.get_funcname(other))
+            other_func = Function(other_func, ops.get_funcname(other))
         else:
             other_func = other
 
@@ -148,7 +148,7 @@ class Function:
 
         # if the operator isn't one of the ones we want,
         # skip it in the loop
-        if not callable(_op) or _op.__name__ not in helper.operator_symbols:
+        if not callable(_op) or _op.__name__ not in ops.operator_symbols:
             continue
 
         # checks if the operator is unary
