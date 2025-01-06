@@ -19,7 +19,8 @@ class Function:
     Attributes:
         function (ftypes.GenericFunction): The function being wrapped.
         components (set[ftypes.GenericFunction]): A set containing
-        all of the functions used to create the total function.
+        all of the functions used to create the total function. Does
+        not include abs calls or operations involving non-callables.
         name: The function's name.
 
     """
@@ -59,7 +60,7 @@ class Function:
     def name(self) -> str:
         """The function's name."""
 
-        return self.__name__
+        return ops.get_funcname(self)
 
     @name.setter
     def name(self, new_name: str) -> None:
