@@ -53,3 +53,8 @@ class TestFunction:
     def test_unary(self, f: Function, inputs, op_name: str) -> None:
         op = getattr(operator, op_name)
         assert_allclose(op(f)(inputs), op(f(inputs)))
+
+    def test_components(self, f: Function, g: Function) -> None:
+        h = f @ f + g @ g
+        h1, h2 = list(h.components)
+        assert (h1, h2) == (f, g)
