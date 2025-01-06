@@ -1,7 +1,7 @@
 import operator
-import pytest
 
 import numpy as np
+import pytest
 from numpy.testing import assert_allclose
 
 from ..function import Function
