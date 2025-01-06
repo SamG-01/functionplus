@@ -68,6 +68,9 @@ class Function:
     def __repr__(self) -> str:
         return f"<Function '{self.name}'>"
 
+    def __hash__(self) -> int:
+        return hash(self.function)
+
     def __call__(self, *args, **kwargs):
         """Calls self.function(*args, **kwargs)."""
 
