@@ -6,7 +6,8 @@ from inspect import signature
 
 from numpy import ones_like
 
-from .core import dunder, helper, types as ftypes
+from .core import dunder, helper
+from .core import types as ftypes
 
 __all__ = ["Function"]
 
