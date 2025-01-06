@@ -4,7 +4,7 @@ import operator
 from functools import partial, update_wrapper
 from inspect import signature
 
-from numpy import ones_like
+from numpy import full_like
 
 from .core import dunder, helper
 from .core import types as ftypes
@@ -105,7 +105,14 @@ class Function:
             # that returns that function in the same shape as
             # whatever input it receives
             def other_func(x):
-                return other * ones_like(x)
+                dtype = getattr(other, "dtype", getattr(x, "dtype", None))
+                try:
+                    out = full_like(x, other, dtype=dtype)
+                except ValueError:
+                    out = full_like(x, other, dtype="object")
+                if not out.ndim:
+                    return out.item()
+                return out
 
             other_func = Function(other_func, helper.get_funcname(other))
         else:
