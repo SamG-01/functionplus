@@ -23,9 +23,9 @@ class TestFunction:
         a, b = request.param
         return a * x**b
 
-    @pytest.fixture(scope="class", params=[np.abs, np.arctan, np.cos, np.exp])
+    @pytest.fixture(scope="class", params=[np.log, np.arctan, np.cos, np.exp])
     def g(self, request: pytest.FixtureRequest, x: Function) -> Function:
-        return request.param @ x
+        return Function(request.param)
 
     def test_composition(self, f: Function, g: Function, inputs) -> None:
         assert_allclose((f @ g)(inputs), f(g(inputs)))
@@ -54,6 +54,12 @@ class TestFunction:
         op = getattr(operator, op_name)
         assert_allclose(op(f)(inputs), op(f(inputs)))
 
-    def test_components(self, f: Function, g: Function) -> None:
-        h = f @ f + g @ g + np.cos
-        assert h.components == set([f, g, np.cos])
+    def test_components(self, f: Function, g: Function, x: Function) -> None:
+        h = 2 + f @ f + g @ g + np.cos
+        assert h.components == set([*f.components, *g.components, np.cos])
+        assert h.components == set([x, g.function, np.cos])
+
+    def test_partial(self, inputs) -> None:
+        h = Function(np.arctan2)
+        h_p = h.partial(np.pi/6)
+        assert_allclose(h_p(inputs), h(np.pi/6, inputs))
