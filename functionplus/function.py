@@ -100,9 +100,16 @@ class Function:
         wrapper.__doc__ = f"Applies the functions {new_name} from left to right."
 
         try:
-            return self.__class__(wrapper)
+            new_func = self.__class__(wrapper)
         except TypeError:
-            return other.__class__(wrapper)
+            new_func = other.__class__(wrapper)
+
+        components: set = getattr(self, "components", set([self]))
+        components.update(getattr(other, "components", set([other])))
+
+        new_func.components = components
+
+        return new_func
 
     def __rmatmul__(self, other: ftypes.Self | ftypes.Any) -> ftypes.Self:
         """Composes another Function with this function."""
