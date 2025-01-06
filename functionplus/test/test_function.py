@@ -56,10 +56,14 @@ class TestFunction:
 
     def test_components(self, f: Function, g: Function, x: Function) -> None:
         h = 2 + f @ f + g @ g + np.cos
-        assert h.components == set([*f.components, *g.components, np.cos])
-        assert h.components == set([x, g.function, np.cos])
+        assert (
+            h.components
+            == set([*f.components, *g.components, np.cos])
+            == set([x, g, np.cos])
+            == set([x.function, g.function.np.cos])
+        )
 
     def test_partial(self, inputs) -> None:
         h = Function(np.arctan2)
-        h_p = h.partial(np.pi/6)
-        assert_allclose(h_p(inputs), h(np.pi/6, inputs))
+        h_p = h.partial(np.pi / 6)
+        assert_allclose(h_p(inputs), h(np.pi / 6, inputs))
