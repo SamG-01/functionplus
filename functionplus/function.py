@@ -175,7 +175,7 @@ class Function:
             locals()[rop_name] = rop__
 
     # removes temporary variables
-    del op_name, _op, op__, rop__, rop_name
+    del op_name, _op, op__, rop__, rop_name  # pylint: disable=W0631
 
     @classmethod
     def id(cls, name: str = "id") -> ftypes.Self:
