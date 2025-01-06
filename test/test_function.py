@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from ..function import Function
+from functionplus import Function
 
 
 class TestFunction:
@@ -60,7 +60,7 @@ class TestFunction:
             h.components
             == set([*f.components, *g.components, np.cos])
             == set([x, g, np.cos])
-            == set([x.function, g.function.np.cos])
+            == set([x.function, g.function, np.cos])
         )
 
     def test_partial(self, inputs) -> None:
