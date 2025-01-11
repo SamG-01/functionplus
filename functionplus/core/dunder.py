@@ -1,155 +1,190 @@
+from abc import abstractmethod
 from functools import wraps
+import operator
+
+from numpy import full_like
 
 from . import ops
 from . import types as ftypes
 
-__all__ = ["binary_calls", "binary_dunder", "unary_dunder"]
 
-def binary_calls(
-    f: ftypes.GenericFunction | ftypes.Any,
-    g: ftypes.GenericFunction | ftypes.Any,
-    *args: ftypes.Any,
-    **kwargs: ftypes.Any,
-) -> tuple[ftypes.Any, ftypes.Any]:
-    """Takes two input objects and calls with them with the
-    arguments passed in alongside them, if possible.
+class DunderOperator:
+    def __init__(
+        self, name: str, op: ftypes.Operator | None = None, is_rop: bool = False
+    ) -> None:
+        if op is None:
+            self._op: ftypes.Operator = getattr(operator, name)
+        else:
+            self._op = op
+        if not callable(self._op):
+            raise NotImplementedError("Provided operator is not a method")
 
-    Args:
-        f (GenericFunction | Any): The first object to be called if possible.
-        g (GenericFunction | Any): The second object to be called if possible.
-        args (Any): The positional arguments to pass into f and g.
-        kwargs (Any): The keyword arguments to pass into f and g.
+        self.symbol = ops.operator_symbols[self._op.__name__]
+        self.is_rop = is_rop
 
-    Returns:
-        tuple[Any, Any]: Any relevant function outputs.
-    """
+        if is_rop:
+            if not name.startswith("__") and name.endswith("__"):
+                raise ValueError(f"Method {self._op} is not a dunder method")
+            self.name = name[:2] + "r" + name[2:]
+            self.doc = ops.operator_doc(self._op, "other", "self")
+        else:
+            self.name = name
+            self.doc = ops.operator_doc(self._op)
 
-    cf, cg = callable(f), callable(g)
-    if cf and cg:
-        return f(*args, **kwargs), g(*args, **kwargs)
-    if cf:
-        return f(*args, **kwargs), g
-    if cg:
-        return f, g(*args, **kwargs)
-    return f, g
+    @abstractmethod
+    def op(self, cls: type) -> ftypes.GenericFunction: ...
+
+    @staticmethod
+    def get_components(instance: object):
+        if not callable(instance):
+            return set()
+        return getattr(instance, "components", set([instance]))
+
+    def __get__(self, instance: object, owner: type):
+        return self.op(owner).__get__(instance, owner)
 
 
-def binary_dunder(op: ftypes.BinaryOperator, reverse: bool = True):
-    """Decorator factory that converts a binary operator into
-    a dunder method to be added to the Function class.
+class DunderUnaryOperator(DunderOperator):
+    def __init__(self, name: str, op: ftypes.Operator | None = None) -> None:
+        super().__init__(name, op, False)
+        del self.is_rop
 
-    Args:
-        op (ftypes.BinaryOperator): The binary operator from the
-        operator module to convert to a dunder method.
-        reverse (bool, optional): Whether to return the reversed
-        version of the dunder method as well, e.g. __mul__ and
-        __rmul__. Defaults to True.
+    def op(self, cls: type):
+        @wraps(self._op, assigned=("__name__", "__doc__"))
+        def __op__(fself):
+            def wrapper(*fargs, **fkwargs):
+                return self._op(fself(*fargs, **fkwargs))
 
-    Returns:
-        __op__ (Callable[[Function, FunctionType | Any], Function]):
-        The dunder method to be added.
-        __rop__ (Callable[[Function, FunctionType | Any], Function]):
-        The reversed dunder method to be added if reverse is True.
-    """
+            # updates the operator's name and docstring appropriately
+            f_name = ops.get_funcname(fself)
 
-    symbol = ops.operator_symbols[op.__name__]
+            new_name = f"({self.symbol} {f_name})"
+            wrapper.__name__ = new_name
+            wrapper.__doc__ = f"Computes {new_name}(...)."
 
-    # decorates the operator
-    @wraps(op, assigned=("__name__", "__doc__"))
-    def __op__(self, other: ftypes.GenericFunction | ftypes.Any):
-        def wrapper(*args: ftypes.Any, **kwargs: ftypes.Any) -> ftypes.Any:
-            return op(*binary_calls(self, other, *args, **kwargs))
+            h = cls(wrapper)
+            h.components = self.get_components(fself)
+            return h
 
-        # updates the wrapper's name and docstring appropriately
-        f_name = ops.get_funcname(self)
-        g_name = ops.get_funcname(other)
-
-        new_name = f"({f_name} {symbol} {g_name})"
-        wrapper.__name__ = new_name
-        wrapper.__doc__ = f"Computes {new_name}(...)."
-
-        # wraps the wrapper in the Function class if possible
-        try:
-            wrapper_ = self.__class__(wrapper)
-        except TypeError:
-            try:
-                wrapper_ = other.__class__(wrapper)
-            except TypeError:
-                return wrapper
-
-        components: set[ftypes.GenericFunction] = set()
-        try:
-            components.update(self.components)
-        except AttributeError:
-            if callable(self):
-                components.add(self)
-        try:
-            components.update(other.components)
-        except AttributeError:
-            if callable(other):
-                components.add(other)
-
-        wrapper_.components = components
-
-        return wrapper_
-
-    # updates the dunder method's doctring
-    newdoc = ops.operator_doc(op)
-    __op__.__doc__ = newdoc
-
-    if not reverse:
+        __op__.__doc__ = self.doc
         return __op__
 
-    # if reverse, do the same thing for the reversed version
-    @wraps(op, assigned=("__name__", "__doc__"))
-    def __rop__(self, other: ftypes.GenericFunction | ftypes.Any):
-        return __op__(self=other, other=self)
 
-    rnewdoc = ops.operator_doc(op, "other", "self")
-    __rop__.__doc__ = rnewdoc
+class DunderBinaryOperator(DunderOperator):
+    @staticmethod
+    def binary_calls(
+        f: ftypes.GenericFunction | ftypes.Any,
+        g: ftypes.GenericFunction | ftypes.Any,
+        *args: ftypes.Any,
+        **kwargs: ftypes.Any,
+    ) -> tuple[ftypes.Any, ftypes.Any]:
+        """Takes two input objects and calls with them with the
+        arguments passed in alongside them, if possible.
 
-    return __op__, __rop__
+        Args:
+            f (GenericFunction | Any): The first object to be called if possible.
+            g (GenericFunction | Any): The second object to be called if possible.
+            args (Any): The positional arguments to pass into f and g.
+            kwargs (Any): The keyword arguments to pass into f and g.
+
+        Returns:
+            tuple[Any, Any]: Any relevant function outputs.
+        """
+
+        cf, cg = callable(f), callable(g)
+        if cf and cg:
+            return f(*args, **kwargs), g(*args, **kwargs)
+        if cf:
+            return f(*args, **kwargs), g
+        if cg:
+            return f, g(*args, **kwargs)
+        return f, g
+
+    def op(self, cls: type):
+        @wraps(self._op, assigned=("__name__", "__doc__"))
+        def __op__(fself, fother):
+            def wrapper(*fargs, **fkwargs):
+                if self.is_rop:
+                    calls = self.binary_calls(fother, fself, *fargs, **fkwargs)
+                calls = self.binary_calls(fself, fother, *fargs, **fkwargs)
+                return self._op(*calls)
+
+            # updates the wrapper's name and docstring appropriately
+            f_name = ops.get_funcname(fself)
+            g_name = ops.get_funcname(fother)
+
+            new_name = f"({f_name} {self.symbol} {g_name})"
+            wrapper.__name__ = new_name
+            wrapper.__doc__ = f"Computes {new_name}(...)."
+
+            h = cls(wrapper)
+            h.components = self.get_components(fself) | self.get_components(fother)
+            return h
+
+        __op__.__doc__ = self.doc
+        return __op__
 
 
-def unary_dunder(op: ftypes.UnaryOperator):
-    """Decorator factory that converts a unary operator into
-    a dunder method to be added to the Function class.
+class CompositionOperator(DunderOperator):
+    def __init__(self, is_rop: bool = False) -> None:  # pylint: disable=W0231
+        self.is_rop = is_rop
+        self.name = "__rmatmul__" if self.is_rop else "__matmul__"
 
-    Args:
-        op (ftypes.UnaryOperator): The unary operator from the
-        operator module to convert to a dunder method.
+    def op(self, cls: type):
+        return self.rop(cls) if self.is_rop else self.lop(cls)
 
-    Returns:
-        __op__ (Callable[[Function], Function]): The dunder method to be added.
-    """
+    def lop(self, cls: type):
+        def __matmul__(fself, fother: ftypes.GenericFunction | ftypes.Any):
+            """Composes the function with another Function."""
 
-    symbol = ops.operator_symbols[op.__name__]
+            f = getattr(fself, "function", fself)
+            g = getattr(fother, "function", fother)
 
-    # decorates the operator
-    @wraps(op, assigned=("__name__", "__doc__"))
-    def __op__(self):
-        def wrapper(*args, **kwargs):
-            return op(self(*args, **kwargs))
+            # if g is a constant, treat
+            # f @ g as a function call f(g)
+            if not callable(g):
+                return f(g)
 
-        # updates the operator's name and docstring appropriately
-        f_name = ops.get_funcname(self)
+            f_name = ops.get_funcname(fself)
+            g_name = ops.get_funcname(fother)
 
-        new_name = f"({symbol} {f_name})"
-        wrapper.__name__ = new_name
-        wrapper.__doc__ = f"Computes {new_name}(...)."
+            # otherwise, create a wrapper that
+            # composes f and g
+            def wrapper(*args, **kwargs):
+                return f(g(*args, **kwargs))
 
-        # wraps the wrapper in the Function class
-        try:
-            wrapper_ = self.__class__(wrapper)
-        except TypeError:
-            return wrapper
+            new_name = f"{g_name}; {f_name}"
+            wrapper.__name__ = new_name
+            wrapper.__doc__ = f"Applies the functions {new_name} from left to right."
 
-        wrapper_.components = self.components
+            h = cls(wrapper)
+            h.components = self.get_components(fself) | self.get_components(fother)
+            return h
 
-        return wrapper_
+        return __matmul__
 
-    # updates the dunder method's doctring
-    newdoc = ops.operator_doc(op)
-    __op__.__doc__ = newdoc
+    def rop(self, cls: type):
+        def __rmatmul__(self, other: ftypes.Self | ftypes.Any):
+            """Composes another Function with this function."""
 
-    return __op__
+            if not callable(other):
+                # if other is a constant, treat it as a function
+                # that returns that function in the same shape as
+                # whatever input it receives
+                def other_func(x):
+                    dtype = getattr(other, "dtype", getattr(x, "dtype", None))
+                    try:
+                        out = full_like(x, other, dtype=dtype)
+                    except ValueError:
+                        out = full_like(x, other, dtype="object")
+                    if not out.ndim:
+                        return out.item()
+                    return out
+
+                other_func = cls(other_func, ops.get_funcname(other))
+            else:
+                other_func = other
+
+            return self.lop(cls)(other, self)
+
+        return __rmatmul__
