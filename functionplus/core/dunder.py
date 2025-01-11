@@ -164,27 +164,27 @@ class CompositionOperator(DunderOperator):
         return __matmul__
 
     def rop(self, cls: type):
-        def __rmatmul__(self, other: ftypes.Self | ftypes.Any):
+        def __rmatmul__(fself, fother: ftypes.Self | ftypes.Any):
             """Composes another Function with this function."""
 
-            if not callable(other):
+            if not callable(fother):
                 # if other is a constant, treat it as a function
-                # that returns that function in the same shape as
+                # that returns that constant in the same shape as
                 # whatever input it receives
                 def other_func(x):
-                    dtype = getattr(other, "dtype", getattr(x, "dtype", None))
+                    dtype = getattr(fother, "dtype", getattr(x, "dtype", None))
                     try:
-                        out = full_like(x, other, dtype=dtype)
+                        out = full_like(x, fother, dtype=dtype)
                     except ValueError:
-                        out = full_like(x, other, dtype="object")
+                        out = full_like(x, fother, dtype="object")
                     if not out.ndim:
                         return out.item()
                     return out
 
-                other_func = cls(other_func, ops.get_funcname(other))
+                fother_func = cls(other_func, ops.get_funcname(fother))
             else:
-                other_func = other
+                fother_func = fother
 
-            return self.lop(cls)(other, self)
+            return self.lop(cls)(fself=fother_func, fother=fself)
 
         return __rmatmul__
