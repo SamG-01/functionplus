@@ -1,16 +1,11 @@
-from __future__ import annotations
-
 import operator
 from functools import partial, update_wrapper
 from inspect import signature
-
-from numpy import full_like
 
 from .core import dunder, ops
 from .core import types as ftypes
 
 __all__ = ["Function"]
-
 
 class Function:
     """A wrapper class for functions that facilitates
@@ -56,6 +51,12 @@ class Function:
 
         self.components = set([self.function])
 
+    @classmethod
+    def id(cls, name: str = "id") -> ftypes.Self:
+        """Returns the identity function."""
+
+        return cls(lambda x: x, name)
+
     @property
     def name(self) -> str:
         """The function's name."""
@@ -76,73 +77,6 @@ class Function:
         """Calls self.function(*args, **kwargs)."""
 
         return self.function(*args, **kwargs)
-
-    def __matmul__(self, other: ftypes.GenericFunction | ftypes.Any) -> ftypes.Self:
-        """Composes the function with another Function."""
-
-        f = getattr(self, "function", self)
-        f_name = ops.get_funcname(self)
-
-        g = getattr(other, "function", other)
-        g_name = ops.get_funcname(other)
-
-        # if g is a constant, treat
-        # f @ g as a function call f(g)
-        if not callable(g):
-            return f(g)
-
-        # otherwise, create a wrapper that
-        # composes f and g
-        def wrapper(*args, **kwargs):
-            return f(g(*args, **kwargs))
-
-        new_name = f"{g_name}; {f_name}"
-        wrapper.__name__ = new_name
-        wrapper.__doc__ = f"Applies the functions {new_name} from left to right."
-
-        try:
-            new_func = self.__class__(wrapper)
-        except TypeError:
-            new_func = other.__class__(wrapper)
-
-        components: set[ftypes.GenericFunction] = set()
-        try:
-            components.update(self.components)
-        except AttributeError:
-            if callable(self):
-                components.add(self)
-        try:
-            components.update(other.components)
-        except AttributeError:
-            if callable(other):
-                components.add(other)
-
-        new_func.components = components
-
-        return new_func
-
-    def __rmatmul__(self, other: ftypes.Self | ftypes.Any) -> ftypes.Self:
-        """Composes another Function with this function."""
-
-        if not callable(other):
-            # if other is a constant, treat it as a function
-            # that returns that function in the same shape as
-            # whatever input it receives
-            def other_func(x):
-                dtype = getattr(other, "dtype", getattr(x, "dtype", None))
-                try:
-                    out = full_like(x, other, dtype=dtype)
-                except ValueError:
-                    out = full_like(x, other, dtype="object")
-                if not out.ndim:
-                    return out.item()
-                return out
-
-            other_func = Function(other_func, ops.get_funcname(other))
-        else:
-            other_func = other
-
-        return self.__class__.__matmul__(other_func, self)
 
     def composed(self, n: int = 1) -> ftypes.Self:
         """Returns the composition of f with itself a total of n times."""
@@ -166,43 +100,45 @@ class Function:
         f_new = partial(self.function, *pargs, **pkwargs)
         return self.__class__(f_new)
 
-    # adds arithmetic and boolean operators to the class
-    for op_name in dir(operator):
-        _op = getattr(operator, op_name)
+    __matmul__ = dunder.CompositionOperator(False)
+    __rmatmul__ = dunder.CompositionOperator(True)
 
-        # if the operator isn't one of the ones we want,
-        # skip it in the loop
-        if not callable(_op) or _op.__name__ not in ops.operator_symbols:
-            continue
 
-        # checks if the operator is unary
-        if len(signature(_op).parameters) == 1:
-            try:
-                locals()[op_name] = dunder.unary_dunder(_op)
-            except NotImplementedError:
-                #print(f"Unary operator {op_name} couldn't be added to Function")
-                pass
-            continue
+# adds arithmetic and boolean operators to the class
+for op_name in dir(operator):
+    _op = getattr(operator, op_name)
 
-        # otherwise, treat it as a binary one
+    # if the operator isn't one of the ones we want,
+    # skip it in the loop
+    if not callable(_op) or _op.__name__ not in ops.operator_symbols:
+        continue
+
+    # checks if the operator is unary
+    if len(signature(_op).parameters) == 1:
         try:
-            op__, rop__ = dunder.binary_dunder(_op)
-        except NotImplementedError:
-            print(f"Binary operator {op_name} couldn't be added to Function")
+            __udunder__ = dunder.DunderUnaryOperator(op_name, _op)
+            #locals()[__udunder__.name] = __udunder__
+            setattr(Function, __udunder__.name, __udunder__)
+        except (NotImplementedError, ValueError) as e:
+            #print(f"Unary operator {op_name} couldn't be added to Function")
+            pass
+        continue
+
+    # otherwise, treat it as a binary one
+    try:
+        __bdunder__ = dunder.DunderBinaryOperator(op_name, _op)
+        #locals()[__bdunder__.name] = __bdunder__
+        setattr(Function, __bdunder__.name, __bdunder__)
+    except (NotImplementedError, ValueError):
+        #print(f"Binary operator {op_name} couldn't be added to Function")
+        continue
+
+    # adds __rop__ as well if it exists in general
+    if hasattr(float, op_name[:2] + "r" + op_name[2:]):
+        try:
+            __brdunder__ = dunder.DunderBinaryOperator(op_name, _op, True)
+            #locals()[__brdunder__.name] = __brdunder__
+            setattr(Function, __brdunder__.name, __brdunder__)
+        except (NotImplementedError, ValueError):
+            #print(f"Binary operator {rop_name} couldn't be added to Function")
             continue
-
-        locals()[op_name] = op__
-
-        # adds __rop__ as well if it exists in general
-        rop_name = op_name[:2] + "r" + op_name[2:]
-        if hasattr(float, rop_name):
-            locals()[rop_name] = rop__
-
-    # removes temporary variables
-    del op_name, _op, op__, rop__, rop_name  # pylint: disable=W0631
-
-    @classmethod
-    def id(cls, name: str = "id") -> ftypes.Self:
-        """Returns the identity function."""
-
-        return cls(lambda x: x, name)
