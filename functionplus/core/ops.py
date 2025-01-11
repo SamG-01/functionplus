@@ -5,7 +5,7 @@ from . import types as ftypes
 __all__ = ["operator_symbols", "get_funcname", "operator_doc"]
 
 unary_symbols = {
-    "abs": "abs ",
+    "abs": "abs",
     "neg": "-",
     "pos": "+"
 }
