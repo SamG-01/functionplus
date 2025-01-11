@@ -119,7 +119,7 @@ for op_name in dir(operator):
             __udunder__ = dunder.DunderUnaryOperator(op_name, _op)
             #locals()[__udunder__.name] = __udunder__
             setattr(Function, __udunder__.name, __udunder__)
-        except (NotImplementedError, ValueError) as e:
+        except (NotImplementedError, ValueError):
             #print(f"Unary operator {op_name} couldn't be added to Function")
             pass
         continue
@@ -136,7 +136,6 @@ for op_name in dir(operator):
     # adds __rop__ as well if it exists
     if not hasattr(float, op_name[:2] + "r" + op_name[2:]):
         continue
-
     try:
         __brdunder__ = dunder.DunderBinaryOperator(op_name, _op, True)
         #locals()[__brdunder__.name] = __brdunder__
