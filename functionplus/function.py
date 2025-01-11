@@ -133,12 +133,14 @@ for op_name in dir(operator):
         #print(f"Binary operator {op_name} couldn't be added to Function")
         continue
 
-    # adds __rop__ as well if it exists in general
-    if hasattr(float, op_name[:2] + "r" + op_name[2:]):
-        try:
-            __brdunder__ = dunder.DunderBinaryOperator(op_name, _op, True)
-            #locals()[__brdunder__.name] = __brdunder__
-            setattr(Function, __brdunder__.name, __brdunder__)
-        except (NotImplementedError, ValueError):
-            #print(f"Binary operator {rop_name} couldn't be added to Function")
-            continue
+    # adds __rop__ as well if it exists
+    if not hasattr(float, op_name[:2] + "r" + op_name[2:]):
+        continue
+
+    try:
+        __brdunder__ = dunder.DunderBinaryOperator(op_name, _op, True)
+        #locals()[__brdunder__.name] = __brdunder__
+        setattr(Function, __brdunder__.name, __brdunder__)
+    except (NotImplementedError, ValueError):
+        #print(f"Binary operator {rop_name} couldn't be added to Function")
+        pass
